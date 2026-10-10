@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Website Clone",
-  description: "Pixel-perfect website clone",
+  title: "#1 Crowdfunding Platform for Personal & Charity Fundraising | GoFundMe",
+  description:
+    "GoFundMe is the #1 crowdfunding platform for personal, medical, and charity fundraising. Start a GoFundMe today with no fee to start.",
 };
 
 export default function RootLayout({
