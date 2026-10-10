@@ -1,66 +1,44 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDownIcon, ArrowLeftIcon, ArrowRightIcon } from "./icons";
+import { fetchPublishedCampaigns } from "@/lib/campaigns";
+import type { Campaign } from "@/types/campaign";
 
-interface Fundraiser {
-  id: string;
-  title: string;
-  raised: string;
-  progressPercent: number;
-  badge: string;
-  imageSrc: string;
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", GBP: "£", EUR: "€", CAD: "$", AUD: "$" };
+
+function raisedLabel(c: Campaign): string {
+  return `${CURRENCY_SYMBOLS[c.currency] ?? "$"}${c.raisedAmount.toLocaleString()} raised`;
 }
 
-const largeCardData: Fundraiser = {
-  id: "carmine-street",
-  title: "Fund NYC's Iconic Carmine Street Guitars",
-  raised: "$67,890 raised",
-  progressPercent: 78,
-  badge: "3 miles away",
-  imageSrc: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80",
-};
-
-const smallCardsData: Fundraiser[] = [
-  {
-    id: "ran-blake",
-    title: "Help Ran Blake, a Musical Pioneer, with Medical Costs",
-    raised: "$42,844 raised",
-    progressPercent: 65,
-    badge: "3 miles away",
-    imageSrc: "https://images.unsplash.com/photo-1520523839898-507121404c00?w=600&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "victoria-kids",
-    title: "Help Victoria And Her Kids Not End Up Homeless ❤️",
-    raised: "$23,520 raised",
-    progressPercent: 82,
-    badge: "3 miles away",
-    imageSrc: "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=600&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "sophia-scholarship",
-    title: "Sophia Lynn Donath Legacy Scholarship",
-    raised: "$74,847 raised",
-    progressPercent: 94,
-    badge: "3 miles away",
-    imageSrc: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=600&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "village-works",
-    title: "Support VILLAGE WORKS - Keep NYC Culture Alive",
-    raised: "$13,387 raised",
-    progressPercent: 45,
-    badge: "3 miles away",
-    imageSrc: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&auto=format&fit=crop&q=80",
-  },
-];
+function progressOf(c: Campaign): number {
+  return Math.min(100, Math.round((c.raisedAmount / c.targetGoal) * 100));
+}
 
 export function DiscoverFundraisers() {
   const [selectedFilter, setSelectedFilter] = useState("Nearby");
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
   const filterOptions = ["Nearby", "Trending", "Medical", "Emergency", "Education"];
+  const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPublishedCampaigns(5)
+      .then((list) => {
+        if (!cancelled) setCampaigns(list);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const largeCard = campaigns?.[0];
+  const smallCards = campaigns?.slice(1, 5) ?? [];
 
   return (
     <section className="bg-white py-16 sm:py-24 border-b border-gray-100">
@@ -123,86 +101,88 @@ export function DiscoverFundraisers() {
         </div>
 
         {/* Cards Grid */}
-        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Left Large Card */}
-          <Link
-            href={`/f/${largeCardData.id}`}
-            className="lg:col-span-5 flex flex-col group cursor-pointer"
-          >
-            <div className="relative aspect-[4/3] sm:aspect-[16/11] w-full overflow-hidden rounded-2xl bg-gray-100">
-              <img
-                src={largeCardData.imageSrc}
-                alt={largeCardData.title}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-              <span className="absolute bottom-3 left-3 rounded-full bg-black/60 backdrop-blur-md px-3 py-1 text-xs font-semibold text-white">
-                {largeCardData.badge}
-              </span>
-            </div>
+        {campaigns === null && !loadFailed && (
+          <div className="mt-8 h-64 animate-pulse rounded-2xl bg-gray-100" aria-busy="true" />
+        )}
 
-            <div className="mt-4 flex flex-1 flex-col justify-between">
-              <div>
-                <h3 className="text-xl font-bold text-[#1d2c22] group-hover:text-[#005e3a] transition-colors leading-snug">
-                  {largeCardData.title}
-                </h3>
-              </div>
-
-              <div className="mt-4">
-                {/* Progress bar */}
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
-                  <div
-                    className="h-full rounded-full bg-[#005e3a]"
-                    style={{ width: `${largeCardData.progressPercent}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-sm font-bold text-[#1d2c22]">
-                  {largeCardData.raised}
-                </p>
-              </div>
-            </div>
-          </Link>
-
-          {/* Right 2x2 Grid of Small Cards */}
-          <div className="lg:col-span-7 grid grid-cols-1 gap-6 sm:grid-cols-2">
-            {smallCardsData.map((card) => (
-              <Link
-                key={card.id}
-                href={`/f/${card.id}`}
-                className="flex flex-col group cursor-pointer"
-              >
-                <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-gray-100">
-                  <img
-                    src={card.imageSrc}
-                    alt={card.title}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <span className="absolute bottom-3 left-3 rounded-full bg-black/60 backdrop-blur-md px-3 py-1 text-xs font-semibold text-white">
-                    {card.badge}
-                  </span>
-                </div>
-
-                <div className="mt-3 flex flex-1 flex-col justify-between">
-                  <h3 className="text-base font-bold text-[#1d2c22] group-hover:text-[#005e3a] transition-colors line-clamp-2 leading-snug">
-                    {card.title}
-                  </h3>
-
-                  <div className="mt-3">
-                    {/* Progress bar */}
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
-                      <div
-                        className="h-full rounded-full bg-[#005e3a]"
-                        style={{ width: `${card.progressPercent}%` }}
-                      />
-                    </div>
-                    <p className="mt-2 text-sm font-bold text-[#1d2c22]">
-                      {card.raised}
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            ))}
+        {loadFailed && (
+          <div className="mt-8 rounded-2xl bg-gray-50 p-10 text-center text-gray-600">
+            Could not load fundraisers right now. Please refresh the page.
           </div>
-        </div>
+        )}
+
+        {campaigns !== null && campaigns.length === 0 && (
+          <div className="mt-8 rounded-2xl bg-gray-50 p-10 text-center">
+            <p className="text-lg font-bold text-[#1d2c22]">No fundraisers yet</p>
+            <p className="mt-1 text-sm text-gray-600">Be the first to start one.</p>
+            <Link
+              href="/create"
+              className="mt-5 inline-flex rounded-full bg-[#024731] px-6 py-3 text-sm font-bold text-white hover:bg-[#003823]"
+            >
+              Start a fundraiser
+            </Link>
+          </div>
+        )}
+
+        {largeCard && (
+          <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-12">
+            {/* Left Large Card */}
+            <Link href={`/f/${largeCard.slug}`} className="lg:col-span-5 flex flex-col group cursor-pointer">
+              <div className="relative aspect-[4/3] sm:aspect-[16/11] w-full overflow-hidden rounded-2xl bg-gray-100">
+                <img
+                  src={largeCard.coverImage}
+                  alt={largeCard.title}
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+                <span className="absolute bottom-3 left-3 rounded-full bg-black/60 backdrop-blur-md px-3 py-1 text-xs font-semibold text-white">
+                  {largeCard.category}
+                </span>
+              </div>
+
+              <div className="mt-4 flex flex-1 flex-col justify-between">
+                <h3 className="text-xl font-bold text-[#1d2c22] group-hover:text-[#005e3a] transition-colors leading-snug">
+                  {largeCard.title}
+                </h3>
+                <div className="mt-4">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                    <div className="h-full rounded-full bg-[#005e3a]" style={{ width: `${progressOf(largeCard)}%` }} />
+                  </div>
+                  <p className="mt-2 text-sm font-bold text-[#1d2c22]">{raisedLabel(largeCard)}</p>
+                </div>
+              </div>
+            </Link>
+
+            {/* Right grid of small cards */}
+            <div className="lg:col-span-7 grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {smallCards.map((card) => (
+                <Link key={card.id} href={`/f/${card.slug}`} className="flex flex-col group cursor-pointer">
+                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-gray-100">
+                    <img
+                      src={card.coverImage}
+                      alt={card.title}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <span className="absolute bottom-3 left-3 rounded-full bg-black/60 backdrop-blur-md px-3 py-1 text-xs font-semibold text-white">
+                      {card.category}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex flex-1 flex-col justify-between">
+                    <h3 className="text-base font-bold text-[#1d2c22] group-hover:text-[#005e3a] transition-colors line-clamp-2 leading-snug">
+                      {card.title}
+                    </h3>
+                    <div className="mt-3">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                        <div className="h-full rounded-full bg-[#005e3a]" style={{ width: `${progressOf(card)}%` }} />
+                      </div>
+                      <p className="mt-2 text-sm font-bold text-[#1d2c22]">{raisedLabel(card)}</p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

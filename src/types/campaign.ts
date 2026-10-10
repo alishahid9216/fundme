@@ -40,6 +40,7 @@ export interface Campaign {
   coverImage: string;
   story: string;
   createdAt: string;
+  createdAtIso: string;
   organizer: Organizer;
   updates: CampaignUpdate[];
   donors: Donor[];

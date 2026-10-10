@@ -1,10 +1,10 @@
 "use client";
 
-import React, { use, useMemo, useState, useSyncExternalStore } from "react";
+import React, { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Lock, ShieldCheck, X, CreditCard } from "lucide-react";
-import { addDonation, getCampaignBySlug, subscribeToStore } from "@/lib/campaign-store";
+import { createDonation, fetchCampaignBySlug } from "@/lib/campaigns";
 import type { Campaign } from "@/types/campaign";
 
 interface PageProps {
@@ -55,31 +55,42 @@ export default function DonatePage({ params }: PageProps) {
   const { slug } = use(params);
   const router = useRouter();
 
-  // The store lives in localStorage: the server snapshot is "not loaded", the client snapshot is the raw
-  // stored string (a stable value, so React can compare it between renders).
-  const storedRaw = useSyncExternalStore(
-    subscribeToStore,
-    () => {
-      try {
-        return localStorage.getItem("gofundme_custom_campaigns") ?? "";
-      } catch {
-        return "";
-      }
-    },
-    () => null
-  );
-  const loaded = storedRaw !== null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const campaign: Campaign | null = useMemo(() => (loaded ? getCampaignBySlug(slug) ?? null : null), [loaded, slug, storedRaw]);
+  const searchParams = useSearchParams();
+  const initialAmount = Number(searchParams.get("amount"));
+
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCampaignBySlug(slug)
+      .then((found) => {
+        if (cancelled) return;
+        setCampaign(found);
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoadFailed(true);
+        setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
 
   const [frequency, setFrequency] = useState<"once" | "monthly">("once");
-  const [presetAmount, setPresetAmount] = useState<number | null>(50);
+  const [presetAmount, setPresetAmount] = useState<number | null>(
+    PRESET_AMOUNTS.includes(initialAmount) ? initialAmount : 50
+  );
   const [customAmount, setCustomAmount] = useState("");
   const [tipPercent, setTipPercent] = useState(15);
   const [donorName, setDonorName] = useState("");
   const [donorEmail, setDonorEmail] = useState("");
   const [hideName, setHideName] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
   const symbol = CURRENCY_SYMBOLS[campaign?.currency ?? "USD"] ?? "$";
@@ -98,6 +109,22 @@ export default function DonatePage({ params }: PageProps) {
 
   if (!loaded) {
     return <div className="min-h-screen bg-[#f6f6f4]" />;
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#f6f6f4] px-4 text-center">
+        <h1 className="text-2xl font-extrabold text-[#1d2c22]">Something went wrong</h1>
+        <p className="mt-2 text-sm text-gray-600">We could not load this fundraiser. Please try again.</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-6 rounded-full bg-[#02a95c] px-6 py-3 text-sm font-extrabold text-white hover:bg-[#008748]"
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   if (!campaign) {
@@ -121,6 +148,7 @@ export default function DonatePage({ params }: PageProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setNotice("");
 
     if (!amountValid) {
       setError(`Enter an amount between ${symbol}${MIN_DONATION} and ${symbol}${MAX_DONATION.toLocaleString()}.`);
@@ -132,16 +160,26 @@ export default function DonatePage({ params }: PageProps) {
     }
 
     setIsProcessing(true);
-    // DEMO: replace this block with the real card payment (see CardPaymentSlot).
-    setTimeout(() => {
-      addDonation(campaign.slug, {
-        donorName: hideName ? "Anonymous" : donorName.trim() || "Supporter",
-        amount,
-        currency: campaign.currency,
-        isAnonymous: hideName,
+    createDonation(campaign.slug, {
+      amount,
+      tipAmount,
+      donorName: donorName.trim(),
+      donorEmail: donorEmail.trim(),
+      isAnonymous: hideName,
+    })
+      .then((result) => {
+        if (result.status === "succeeded") {
+          router.push(`/f/${campaign.slug}?donated=${encodeURIComponent(String(amount))}`);
+          return;
+        }
+        // Real payments are not connected yet: the donation is stored as pending and no money moves.
+        setNotice("Payments are not connected yet. Your donation was recorded as pending and no money was taken.");
+        setIsProcessing(false);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+        setIsProcessing(false);
       });
-      router.push(`/f/${campaign.slug}?donated=${encodeURIComponent(String(amount))}`);
-    }, 800);
   };
 
   return (
@@ -348,6 +386,12 @@ export default function DonatePage({ params }: PageProps) {
           {error && (
             <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
               {error}
+            </p>
+          )}
+
+          {notice && (
+            <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+              {notice}
             </p>
           )}
 

@@ -78,7 +78,7 @@ export function Hero() {
           <div className="flex items-end justify-center gap-3 sm:gap-4 md:gap-6 px-2">
             {heroCards.map((card) => (
               <Link
-                href="/f/sample-campaign"
+                href="/create"
                 key={card.id}
                 className={`group relative w-28 sm:w-44 md:w-56 lg:w-64 aspect-[3/4] flex-shrink-0 overflow-hidden rounded-2xl sm:rounded-3xl shadow-xl transition-all duration-300 hover:scale-105 hover:z-20 cursor-pointer ${card.rotation} ${card.translateY}`}
               >
@@ -90,7 +90,7 @@ export function Hero() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
                   <span className="text-white text-xs font-bold rounded-full bg-black/60 backdrop-blur-sm px-3 py-1">
-                    View fundraiser →
+                    Start yours →
                   </span>
                 </div>
               </Link>

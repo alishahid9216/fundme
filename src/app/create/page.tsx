@@ -4,8 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { GoFundMeLogo, ChevronRightIcon, ArrowLeftIcon, ShieldCheckIcon } from "@/components/icons";
-import { saveCampaign } from "@/lib/campaign-store";
-import { Campaign } from "@/types/campaign";
+import { createCampaign } from "@/lib/campaigns";
 import { 
   Sparkles, 
   Image as ImageIcon, 
@@ -239,43 +238,24 @@ export default function CreateCampaignPage() {
 
     setIsSubmitting(true);
 
-    const generatedSlug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)+/g, "")
-      .substring(0, 50) || `fundraiser-${Date.now()}`;
-
-    const newCampaign: Campaign = {
-      id: `camp_${Date.now()}`,
-      slug: generatedSlug,
-      title: title.trim(),
-      category: category,
-      country: country,
-      currency: currency,
-      targetGoal: Number(targetGoal),
-      raisedAmount: 0,
-      donorCount: 0,
-      coverImage: customImageUrl.trim() || coverImage,
-      story: story.trim(),
-      createdAt: new Date().toISOString().split("T")[0],
-      organizer: {
-        name: organizerName || "Fundraiser Organizer",
-        avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
-        location: locationName || `${country}`,
-        isVerified: true,
-        beneficiaryName: recipientType === "someone_else" ? beneficiaryName : undefined,
-      },
-      updates: [],
-      donors: [],
-      isCustom: true,
-    };
-
-    saveCampaign(newCampaign);
-
-    // Short simulated delay for smooth feel
-    setTimeout(() => {
-      router.push(`/f/${newCampaign.slug}?published=true`);
-    }, 600);
+    try {
+      const { slug } = await createCampaign({
+        title: title.trim(),
+        category,
+        country,
+        currency,
+        goalAmount: Number(targetGoal),
+        story: story.trim(),
+        coverImageUrl: customImageUrl.trim() || coverImage,
+        organizerName: organizerName.trim() || "Fundraiser Organizer",
+        organizerLocation: locationName.trim() || country,
+        beneficiaryName: recipientType === "someone_else" ? beneficiaryName.trim() : undefined,
+      });
+      router.push(`/f/${slug}?published=true`);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Could not publish your fundraiser. Please try again.");
+      setIsSubmitting(false);
+    }
   };
 
   const progressPercentage = ((currentStep - 1) / 3) * 100;
